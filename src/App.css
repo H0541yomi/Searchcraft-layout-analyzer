@@ -275,6 +275,34 @@
   cursor: default;
 }
 
+.tooltip-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tooltip-box {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #222;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0s;
+  z-index: 100;
+}
+
+.tooltip-wrap:hover .tooltip-box {
+  opacity: 1;
+}
+
 .word-item-flag-badge {
   font-size: 9px;
   font-weight: 700;

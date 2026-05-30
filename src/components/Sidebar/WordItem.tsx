@@ -43,7 +43,12 @@ export function WordItem({ entry, analysis, onToggleOverride }: WordItemProps) {
     <div className={className}>
       <span className="word-item-text">{entry.text}</span>
       {showCheckmark && <span className="word-item-check">✓</span>}
-      {showWarning && <span className="word-item-warn" title="untypable">!</span>}
+      {showWarning && (
+        <span className="tooltip-wrap">
+          <span className="word-item-warn">!</span>
+          <span className="tooltip-box">untypable</span>
+        </span>
+      )}
       {isFlagged && !isUntypable && !isOverridden && triggeredFlags.map(flag => (
         <span key={flag} className="word-item-flag-badge">{FLAG_LABELS[flag]}</span>
       ))}

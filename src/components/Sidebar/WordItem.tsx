@@ -8,6 +8,7 @@ interface WordItemProps {
 
 export function WordItem({ entry, analysis, onToggleOverride }: WordItemProps) {
   const isFlagged = analysis?.isFlagged ?? false
+  const isUntypable = analysis?.isUntypable ?? false
   const isOverridden = entry.isOverridden
 
   const className = [
@@ -19,12 +20,14 @@ export function WordItem({ entry, analysis, onToggleOverride }: WordItemProps) {
     .join(' ')
 
   const hasAnalysis = analysis !== undefined
-  const showCheckmark = hasAnalysis && !isFlagged && !isOverridden
+  const showCheckmark = hasAnalysis && !isFlagged && !isUntypable && !isOverridden
+  const showWarning = hasAnalysis && isUntypable && !isOverridden
 
   return (
     <div className={className}>
       <span className="word-item-text">{entry.text}</span>
       {showCheckmark && <span className="word-item-check">✓</span>}
+      {showWarning && <span className="word-item-warn" title="Word contains unassigned keys">!</span>}
       {(isFlagged || isOverridden) && (
         <button
           className="word-item-override-btn"

@@ -68,18 +68,22 @@ export function analyzeWords(
   const nodeBadness = new Map<string, number>()
 
   for (const entry of entries) {
+    // Tokenize word (handles [BS], [SH] → [Home], _ → space)
+    const chars = tokenizeWord(entry.text)
+
+    // Check if every token is assigned to a key
+    const isUntypable = chars.some(tok => !charToKeyCode.has(tok))
+
     // If overridden, skip detection
     if (entry.isOverridden) {
       wordAnalysis.push({
         id: entry.id,
         flaggedPatterns: [],
         isFlagged: false,
+        isUntypable,
       })
       continue
     }
-
-    // Tokenize word (handles [BS], [SH] → [Home], _ → space)
-    const chars = tokenizeWord(entry.text)
 
     // Run active detectors
     const flaggedPatterns = []
@@ -116,6 +120,7 @@ export function analyzeWords(
       id: entry.id,
       flaggedPatterns,
       isFlagged,
+      isUntypable,
     })
 
     // Accumulate badness for each character in flagged patterns

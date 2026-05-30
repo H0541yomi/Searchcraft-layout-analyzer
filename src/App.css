@@ -262,6 +262,14 @@
   flex-shrink: 0;
 }
 
+.word-item-warn {
+  color: #e67e22;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  cursor: default;
+}
+
 .word-item-override-btn {
   cursor: pointer;
   background: none;

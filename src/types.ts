@@ -34,6 +34,7 @@ export interface WordAnalysis {
   id: string
   flaggedPatterns: FlaggedPattern[]
   isFlagged: boolean
+  isUntypable: boolean  // has tokens not assigned to any key
 }
 
 export interface PhysicalKeyDef {

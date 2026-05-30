@@ -5,12 +5,13 @@
 ```
 App
 ├── Header                        # Title + "Reset to Defaults" button
+├── Tooltip                       # Portal-based instant tooltip component (reusable)
 ├── MainLayout                    # Horizontal flex: sidebar + keyboard area
 │   ├── Sidebar
 │   │   ├── WordListStats         # Line count + unique char count
 │   │   ├── WordListInput         # Textarea, one word/phrase per line (300ms debounce)
 │   │   ├── WordList              # Rendered list of parsed words
-│   │   │   └── WordItem[]        # Single word: text, ✓ checkmark, ignore/enable button
+│   │   │   └── WordItem[]        # Single word: text, flag badges, ! warning (via Tooltip), ✓ checkmark, override button
 │   │   ├── FlagToggles           # 7 checkboxes + show arrows checkbox + master roll logic
 │   │   └── SFSGapInput           # Numeric input, range 1–5, default 1
 │   └── KeyboardArea
@@ -90,6 +91,7 @@ interface WordAnalysis {
   id: string
   flaggedPatterns: Array<{ type, charIndices }>
   isFlagged: boolean
+  isUntypable: boolean  // has tokens not assigned to any key
 }
 ```
 
@@ -136,11 +138,13 @@ WordList re-renders (flagged words may change)
 ```
 Key click → inline input opens
   ↓
-Type character, press Enter or click away
+Type character or token ([BS], [LShift], [RShift], [Home], _), press Enter or click away
+  ↓
+normalizeKeyInput() parses input to canonical form
   ↓
 dispatch({ type: 'SET_CHARACTER', keyCode, character })
   ↓
-reducer: clear character from any other key, set on target key
+reducer: if character exists on another key within same layer, SWAP characters; else set on target key
   ↓
 charToKey re-computed
   ↓
@@ -154,15 +158,17 @@ Textarea input (debounced 300ms)
   ↓
 dispatch({ type: 'SET_WORD_LIST', rawText })
   ↓
-reducer: split lines, trim, lowercase, preserve spaces
+reducer: split lines, trim, normalizeLine() (preserves [BS]/[SH]/etc., converts _ to space, lowercases rest)
   ↓
 wordEntries updated
   ↓
-buildGraph called with new entries + charToKey
+tokenizeWord() parses each word ([SH] → [Home], etc.)
   ↓
-analyzeWords called (detections re-run)
+buildGraph called with tokenized entries + charToKey
   ↓
-WordList re-renders, nodes re-color
+analyzeWords called (detections re-run, isUntypable computed)
+  ↓
+WordList re-renders with flag badges and untypable warnings, nodes re-color
 ```
 
 ### 4. Flag Toggle (checkbox change)

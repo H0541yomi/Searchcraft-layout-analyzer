@@ -52,6 +52,7 @@ keyboard/
 │   │   ├── reducer.ts              # State reducer: 12 action types
 │   │   └── persistence.ts          # LocalStorage read/write + defaults
 │   ├── lib/
+│   │   ├── tokenizer.ts            # Special token parsing: [BS], [LShift], [RShift], [Home], [SH], _→space
 │   │   ├── graph.ts                # buildGraph: adjacency, directed edges, spaces as chars
 │   │   ├── detection.ts            # 5 detectors: SFB, SFS, Rolls, Redirects, Scissors
 │   │   ├── analysis.ts             # Orchestrates detectors, aggregates badness per node
@@ -60,6 +61,7 @@ keyboard/
 │   │   ├── Header.tsx              # Title + "Reset to Defaults" button
 │   │   ├── FingerLegend.tsx        # 5 finger colors + unassigned swatches
 │   │   ├── HelpModal.tsx           # Help overlay (? button)
+│   │   ├── Tooltip.tsx             # Portal-based instant tooltip (position: fixed, z-index: 99999)
 │   │   ├── MainLayout.tsx          # Main flex container (sidebar + keyboards + mouse)
 │   │   ├── Keyboard/
 │   │   │   ├── Keyboard.tsx        # Keyboard container, renders all rows + graph overlay
@@ -77,7 +79,7 @@ keyboard/
 │   │       ├── WordListInput.tsx   # Textarea for word list
 │   │       ├── WordListStats.tsx   # Line count + unique char count
 │   │       ├── WordList.tsx        # Rendered list of words
-│   │       ├── WordItem.tsx        # Single word: flag highlight, override toggle, checkmark
+│   │       ├── WordItem.tsx        # Single word: flag badges, untypable warning (!), checkmark, override
 │   │       ├── FlagToggles.tsx     # 7 checkboxes + master roll logic
 │   │       └── SFSGapInput.tsx     # SFS gap numeric input (1–5)
 ├── public/
@@ -93,7 +95,9 @@ keyboard/
 - **Left hand only.** 5 fingers: L-Pinky, L-Ring, L-Middle, L-Index, L-Thumb. No right-hand assignment.
 - **Two layers.** Main keyboard + shift layer (both fully independent). Mouse keys shared visual but layer-specific.
 - **Unassigned keys allowed.** Keys can have: finger + char, finger only, char only, or neither.
-- **Character uniqueness.** Each character assigned to at most one key per layer. Moving char clears old key.
+- **Character uniqueness.** Each character assigned to at most one key per layer. Assigning a character already on another key swaps the characters between the two keys (within same layer only).
+- **Special key tokens.** Multi-character tokens assignable to keys: `[BS]` (backspace), `[LShift]`, `[RShift]`, `[Home]`. Word text supports `[SH]` (shift+home combo, shift transparent in analysis), case-insensitive. Underscore `_` is an alias for space.
+- **Default flags enabled.** Redirect, SFB, SFS, and Scissor detection enabled by default. Rolls disabled by default.
 - **Directed graph.** a→r ≠ r→a. Edges only between adjacent characters in words.
 - **Spaces are characters.** Create nodes and edges. Represented as `␣` in UI.
 - **Light mode only.** Calm, muted finger colors (orange, yellow, blue, green, purple).
@@ -109,13 +113,18 @@ keyboard/
 ## Interaction Model
 
 ### Keyboard Keys
-- **Left-click** → Opens inline character edit field. Type character, press Enter or click away to confirm. Escape cancels.
+- **Left-click** → Opens inline character edit field. Type character or token (`[BS]`, `[LShift]`, `[RShift]`, `[Home]`, `_` for space), press Enter or click away to confirm. Escape cancels. Assigning a character that exists on another key within the same layer swaps the two keys' characters.
 - **Right-click** → Opens finger dropdown (portal-based, rendered to document.body). Select finger or "Unassigned." Click elsewhere closes.
 - **Double-click not used** for char edit (single-click opens inline edit).
 
 ### Mouse Keys (LClick, RClick, MB4, MB5, Scroll)
-- **Left-click** → Opens inline character edit field (same as keyboard keys).
+- **Left-click** → Opens inline character edit field. Supports same tokens as keyboard keys.
 - **No finger assignment.** Mouse keys have no finger, only character binding.
+
+### Word List
+- **Special tokens in words:** `[BS]`, `[SH]`, `[HOME]`, `[LSHIFT]`/`[LS]`, `[RSHIFT]`/`[RS]` (case-insensitive), `_` for space.
+- **Untypable words:** Words containing tokens not assigned to any key show an orange highlight and `!` warning icon with "untypable" tooltip. Untypable state suppresses all flag indicators.
+- **Flag badges:** Flagged words show small red rectangular badges (e.g. `SFB`, `REDIRECT`) listing triggered flag types.
 
 ### Shift Layer
 - **Button** "Shift Layer ▼/▲" toggles panel visibility.
@@ -165,6 +174,10 @@ const CONFIG = {
   FINGER_COLORS: { ... },         // all 6 colors
 }
 ```
+
+## Experimental Branch: drag-swap
+
+**Not on main.** Adds drag-and-drop key swapping: drag one key onto another to swap characters. Visual feedback: ghost opacity on dragged key, blue glow on drop target, ⇄ icon on hover. Uses `SWAP_CHARACTERS`/`SWAP_SHIFT_CHARACTERS` actions. Layer-isolated.
 
 ## LocalStorage Keys
 

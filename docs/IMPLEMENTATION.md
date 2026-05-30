@@ -10,13 +10,13 @@ This document describes the current implementation of the app. It is a post-impl
 
 ## 1. Build Summary
 
-**All features implemented.** 33 source files across 6 major functional areas:
+**All features implemented.** 35 source files across 6 major functional areas:
 
 1. **Configuration + Types** (config.ts, types.ts)
 2. **Data Definitions** (3 files: keyboard layout, mouse layout, default assignments)
 3. **State Management** (3 files: context, reducer, persistence)
-4. **Pure Function Libraries** (4 files: graph, detection, analysis, keyboard-utils)
-5. **UI Components** (18 files: header, legend, keyboard, graph, mouse, sidebar)
+4. **Pure Function Libraries** (5 files: tokenizer, graph, detection, analysis, keyboard-utils)
+5. **UI Components** (19 files: header, legend, tooltip, keyboard, graph, mouse, sidebar)
 6. **App Root** (app, main entry)
 
 Production build: ~50KB gzipped. Light mode only.
@@ -52,9 +52,10 @@ Production build: ~50KB gzipped. Light mode only.
 
 | File | Responsibility |
 |------|---|
-| `src/lib/graph.ts` | `buildGraph(entries, charToKey)` → { nodes, edges }. Adjacency + directed edges. Spaces as chars. Unrecognized chars break adjacency. |
+| `src/lib/tokenizer.ts` | Special token parsing: `normalizeKeyInput()` (key-edit), `normalizeLine()` (word storage), `tokenizeWord()` (analysis). Tokens: `[BS]`, `[LShift]`, `[RShift]`, `[Home]`, `[SH]` (shift+home combo), `_` (space alias). Case-insensitive. |
+| `src/lib/graph.ts` | `buildGraph(entries, charToKey)` → { nodes, edges }. Uses `tokenizeWord()` for parsing. Adjacency + directed edges. Spaces as chars. Unrecognized tokens break adjacency. |
 | `src/lib/detection.ts` | 5 detectors: `detectSFBs`, `detectSFS`, `detectRolls`, `detectRedirects`, `detectScissors`. Each returns FlaggedPattern[]. |
-| `src/lib/analysis.ts` | `analyzeWords(entries, assignments×4, flags, sfsGap)` → { wordAnalysis[], nodeBadness }. Orchestrates all detectors, aggregates badness. |
+| `src/lib/analysis.ts` | `analyzeWords(entries, assignments×4, flags, sfsGap)` → { wordAnalysis[], nodeBadness }. Uses `tokenizeWord()`. Computes `isUntypable` for words with unassigned tokens. Orchestrates all detectors, aggregates badness. |
 | `src/lib/keyboard-utils.ts` | `buildKeyPixelMap()`, `getKeyboardDimensions()`, `cycleFingerForward()`. Pixel math from layout data. |
 
 ### UI Components
@@ -64,6 +65,7 @@ Production build: ~50KB gzipped. Light mode only.
 |------|---|
 | `src/App.tsx` | App root: AppProvider + Header + MainLayout + HelpModal |
 | `src/components/Header.tsx` | Title + "Reset to Defaults" button |
+| `src/components/Tooltip.tsx` | Portal-based tooltip: `position: fixed`, `z-index: 99999`, instant show on hover via `getBoundingClientRect()`. Avoids overflow clipping. |
 | `src/components/MainLayout.tsx` | Main flex container: Sidebar + KeyboardArea with shift panel toggle |
 
 #### Keyboard
@@ -71,7 +73,7 @@ Production build: ~50KB gzipped. Light mode only.
 |------|---|
 | `src/components/Keyboard/Keyboard.tsx` | Keyboard container: renders rows + GraphOverlay for layer |
 | `src/components/Keyboard/KeyboardRow.tsx` | Single row of keys |
-| `src/components/Keyboard/Key.tsx` | Single key: color, char label, click→edit, right-click→dropdown (portal) |
+| `src/components/Keyboard/Key.tsx` | Single key: color, char/token label (shrinks for multi-char tokens), click→edit (uses `normalizeKeyInput()`), right-click→dropdown (portal). Character swap: assigning a char that exists on another key swaps them. |
 
 #### Graph Visualization
 | File | Responsibility |
@@ -91,9 +93,9 @@ Production build: ~50KB gzipped. Light mode only.
 |------|---|
 | `src/components/Sidebar/Sidebar.tsx` | Sidebar container: imports all sub-components |
 | `src/components/Sidebar/WordListInput.tsx` | Textarea, 300ms debounce, SET_WORD_LIST dispatch |
-| `src/components/Sidebar/WordListStats.tsx` | Line count + unique char count |
+| `src/components/Sidebar/WordListStats.tsx` | Line count + unique token count (uses `tokenizeWord()`) |
 | `src/components/Sidebar/WordList.tsx` | Container for WordItem components |
-| `src/components/Sidebar/WordItem.tsx` | Single word: flag highlight, override toggle, checkmark |
+| `src/components/Sidebar/WordItem.tsx` | Single word: orange highlight + `!` warning (via Tooltip) for untypable words, red flag badges (SFB, REDIRECT, etc.), checkmark for clean words, override toggle. Untypable suppresses all flag indicators. |
 | `src/components/Sidebar/FlagToggles.tsx` | 7 checkboxes + show arrows toggle + master roll logic |
 | `src/components/Sidebar/SFSGapInput.tsx` | Numeric input 1–5 |
 
@@ -248,6 +250,64 @@ Return nodeBadness map
 
 Final intensity = max(0.10, badness / maxBadness)
 
+### Special Token System (tokenizer.ts)
+
+**Assignable tokens (canonical forms):**
+- `[BS]` — Backspace key
+- `[LShift]` — Left shift key
+- `[RShift]` — Right shift key
+- `[Home]` — Home navigation key
+- `_` — Space (alias)
+
+**Word text tokens (case-insensitive):**
+```
+[BS] / [bs]           → '[BS]'      (backspace)
+[HOME] / [home]       → '[Home]'    (home key)
+[SH] / [sh]           → '[Home]'    (shift+home combo, shift transparent)
+[LSHIFT] / [LS] / [ls] → '[LShift]' (left shift)
+[RSHIFT] / [RS] / [rs] → '[RShift]' (right shift)
+_                     → ' '         (space)
+```
+
+**Parsing flow:**
+```
+Key edit input → normalizeKeyInput() → canonical form or first char
+Word list line → normalizeLine()    → preserve tokens, _ → space, lowercase rest
+Stored word    → tokenizeWord()     → analysis tokens ([SH] → [Home])
+```
+
+**Token validation:**
+- `isValidKeyChar()` accepts single printable chars + special tokens
+- Control chars (U+0000–U+001F, U+007F–U+009F) rejected
+
+**Character swap on rebind:**
+When assigning a character to key A that already exists on key B (within same layer):
+1. Capture old character from key A
+2. Find key B with the new character
+3. Swap: key A gets new char, key B gets old char from A
+4. No cross-layer swap
+
+### Untypable Word Detection
+
+```
+For each word:
+  tokens = tokenizeWord(text)
+  isUntypable = tokens.some(tok => !charToKey.has(tok))
+  
+  If isUntypable:
+    Show orange highlight + '!' warning
+    Suppress all flag indicators (badges, red highlight, ignore button)
+  Else if flagged:
+    Show red highlight + flag badges (SFB, REDIRECT, etc.)
+    Show ignore/enable button
+  Else:
+    Show green checkmark
+```
+
+**Flag badges:** Small red rectangles with uppercase flag type abbreviations, rendered between word text and ignore button.
+
+**Priority:** Untypable > Flagged > Clean
+
 ---
 
 ## 4. Interaction Model
@@ -256,10 +316,11 @@ Final intensity = max(0.10, badness / maxBadness)
 
 **Left-click on key:**
 - Opens inline text input over the key
-- Shows current character (or empty)
-- Enter or click away confirms
-- Escape cancels
-- First grapheme taken if multiple chars typed
+- Shows current character/token (or empty)
+- Type character or token: `[BS]`, `[LShift]`, `[RShift]`, `[Home]`, `_` (space)
+- `normalizeKeyInput()` parses to canonical form (case-insensitive)
+- Enter or click away confirms, Escape cancels
+- If new character exists on another key in same layer, characters swap
 
 **Right-click on key:**
 - Portal dropdown appears at mouse position
@@ -449,8 +510,9 @@ Approx 40–50KB total (all keys combined, typical usage).
 - No future support for right-hand assignments (out of scope).
 
 ### Character Support
-- **Unicode:** First grapheme taken. Input validation rejects control chars (U+0000–U+001F, U+007F–U+009F).
-- **Spaces:** Treated as regular characters (nodes + edges).
+- **Unicode:** First grapheme taken (or full token if special). Input validation rejects control chars (U+0000–U+001F, U+007F–U+009F).
+- **Special tokens:** Multi-character tokens (`[BS]`, `[LShift]`, `[RShift]`, `[Home]`) assignable to keys. Case-insensitive in word text. `_` is space alias.
+- **Spaces:** Treated as regular characters (nodes + edges). Represented as `␣` in UI.
 - **Printable ASCII + Unicode:** Supported. Non-printable rejected.
 
 ### Graph Properties
@@ -474,7 +536,8 @@ Approx 40–50KB total (all keys combined, typical usage).
 
 ### Modifier Keys
 - **Fully assignable** (Tab, CapsLock, Shift, Ctrl, Alt).
-- Can bind characters + fingers like any key.
+- Can bind characters/tokens + fingers like any key.
+- **Character swap:** Assigning a character that exists on another key (within same layer) swaps the two keys' characters.
 
 ### Keyboard Sizing
 - **Fixed pixel dimensions:** KEY_UNIT_PX (44px) + KEY_GAP_PX (3px).
@@ -490,12 +553,20 @@ Approx 40–50KB total (all keys combined, typical usage).
 ### Persistence
 - **Immediate on state change.** No "Save" button. Every dispatch → reducer → localStorage.
 
-### Portal Dropdowns
+### Portal Components
 - **Finger selector:** Rendered to document.body via React.createPortal to escape overflow:hidden clipping on keyboard container.
+- **Tooltip component:** Portal-based, `position: fixed`, `z-index: 99999`. Appears instantly on hover via `getBoundingClientRect()`. Avoids scroll container clipping. Updates position on scroll while visible.
 
 ### Error Recovery
 - **localStorage parse failure:** Falls back to defaults, logs warning.
 - **Invalid input:** Silently rejected in reducer (no error dialog).
+
+### Default Settings
+- **Flags enabled:** Redirect, SFB, SFS, Scissor (default: true)
+- **Flags disabled:** Rolls (all variants, default: false)
+- **SFS gap:** 1 (default)
+- **Show arrows:** true
+- **Shift layer:** hidden on load
 
 ---
 
@@ -535,7 +606,39 @@ No memory leaks observed (event listeners cleaned up, refs released).
 
 ---
 
-## 11. Testing Approach
+## 11. Experimental Branch: drag-swap
+
+**Not merged to main.** Adds drag-and-drop key swapping.
+
+### Features
+- **Drag any key** onto another key to swap their characters
+- **Visual feedback:**
+  - Dragged key: `opacity: 0.4`, `cursor: grabbing`
+  - All other keys: subtle blue outline (`box-shadow: 0 0 0 1px rgba(33, 150, 243, 0.2)`)
+  - Drop target on hover: bright blue glow + scale (`box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.6)`), `transform: scale(1.02)`
+  - Swap icon `⇄` appears on drop target
+- **Layer-isolated:** Cannot drag between main and shift layers
+- **Implementation:**
+  - HTML5 Drag API: `draggable={true}`, `onDragStart`, `onDragOver`, `onDragEnter`, `onDragLeave`, `onDrop`, `onDragEnd`
+  - State: `draggedKeyCode`, `dragOverKeyCode` tracked in Keyboard component
+  - Actions: `SWAP_CHARACTERS`, `SWAP_SHIFT_CHARACTERS`
+  - Reducer: swaps characters between two keys without clearing either
+
+### Rationale for experimental status
+- **UX ambiguity:** Conflicts with left-click character edit (users may accidentally drag when clicking)
+- **Discoverability:** No visual affordance that keys are draggable until user tries
+- **Accessibility:** Drag-and-drop less accessible than direct edit
+- **Main branch preference:** Character swap on rebind (typing a char that exists elsewhere) is more explicit
+
+### Access
+```bash
+git checkout drag-swap
+npm run dev
+```
+
+---
+
+## 12. Testing Approach
 
 No formal test suite in current build. Recommended additions:
 
@@ -579,7 +682,7 @@ No formal test suite in current build. Recommended additions:
 
 ---
 
-## 12. Known Issues & Workarounds
+## 13. Known Issues & Workarounds
 
 | Issue | Status | Workaround |
 |-------|--------|-----------|
@@ -592,7 +695,7 @@ No formal test suite in current build. Recommended additions:
 
 ---
 
-## 13. Future Enhancement Opportunities
+## 14. Future Enhancement Opportunities
 
 - Tooltip on node/edge hover (low effort, high polish)
 - "Clear All Overrides" button (trivial)

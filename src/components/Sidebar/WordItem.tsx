@@ -47,7 +47,7 @@ export function WordItem({ entry, analysis, onToggleOverride }: WordItemProps) {
       {isFlagged && !isUntypable && !isOverridden && triggeredFlags.map(flag => (
         <span key={flag} className="word-item-flag-badge">{FLAG_LABELS[flag]}</span>
       ))}
-      {(isFlagged || isOverridden) && (
+      {(isFlagged && !isUntypable || isOverridden) && (
         <button
           className="word-item-override-btn"
           onClick={onToggleOverride}

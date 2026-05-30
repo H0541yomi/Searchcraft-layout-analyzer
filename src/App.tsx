@@ -1,11 +1,18 @@
+import { AppProvider } from './state/AppContext'
+import { Header } from './components/Header'
+import { MainLayout } from './components/MainLayout'
+import { HelpModal } from './components/HelpModal'
 import './App.css'
 
 function App() {
   return (
-    <div className="app">
-      <h1>SearchCraft Keybind Planner</h1>
-      <p className="subtitle">Optimize your left-hand keyboard layout for searchcrafting</p>
-    </div>
+    <AppProvider>
+      <div className="app">
+        <Header />
+        <MainLayout />
+        <HelpModal />
+      </div>
+    </AppProvider>
   )
 }
 

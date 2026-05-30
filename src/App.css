@@ -243,6 +243,11 @@
   color: #c0392b;
 }
 
+.word-item--untypable {
+  background: #fff3e0;
+  color: #b35c00;
+}
+
 .word-item--overridden {
   color: #999;
 }
@@ -268,6 +273,19 @@
   font-weight: 700;
   flex-shrink: 0;
   cursor: default;
+}
+
+.word-item-flag-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #c0392b;
+  color: #fff;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .word-item-override-btn {

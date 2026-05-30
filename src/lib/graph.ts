@@ -1,4 +1,5 @@
 import type { WordEntry, GraphNode, GraphEdge } from '../types'
+import { tokenizeWord } from './tokenizer'
 
 export interface CharacterGraph {
   nodes: Map<string, GraphNode>
@@ -13,16 +14,15 @@ export function buildGraph(
   const edges = new Map<string, GraphEdge>()
 
   for (const entry of entries) {
-    // Normalize to lowercase (should already be lowercase from reducer, but guard)
-    const text = entry.text.toLowerCase()
+    const rawTokens = tokenizeWord(entry.text)
 
-    // Extract only characters that are assigned to keys
+    // Extract only tokens that are assigned to keys
     const validChars: string[] = []
-    for (const char of text) {
-      if (charToKey.has(char)) {
-        validChars.push(char)
+    for (const tok of rawTokens) {
+      if (charToKey.has(tok)) {
+        validChars.push(tok)
       }
-      // Unassigned characters break adjacency - they are skipped
+      // Unassigned tokens break adjacency - they are skipped
     }
 
     // Count character frequencies (for all valid chars)

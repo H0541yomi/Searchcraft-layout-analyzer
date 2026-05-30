@@ -1,6 +1,7 @@
 import type { WordEntry, KeyAssignment, FlagType, WordAnalysis, FingerEnum } from '../types'
 import { detectSFBs, detectSFS, detectRolls, detectRedirects, detectScissors } from './detection'
 import { KEYBOARD_LAYOUT } from '../data/keyboard-layout'
+import { tokenizeWord } from './tokenizer'
 
 export interface AnalysisResult {
   wordAnalysis: WordAnalysis[]
@@ -77,8 +78,8 @@ export function analyzeWords(
       continue
     }
 
-    // Split into individual characters
-    const chars = entry.text.split('')
+    // Tokenize word (handles [BS], [SH] → [Home], _ → space)
+    const chars = tokenizeWord(entry.text)
 
     // Run active detectors
     const flaggedPatterns = []

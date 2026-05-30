@@ -1,15 +1,7 @@
 import type { AppState, AppAction } from '../types'
 import { getDefaultState } from './persistence'
 import { CONFIG } from '../config'
-
-function isPrintableChar(char: string): boolean {
-  if (char.length === 0) return false
-  // Reject control characters (U+0000-U+001F, U+007F-U+009F)
-  const cp = char.codePointAt(0)
-  if (cp === undefined) return false
-  if (cp <= 0x1F || (cp >= 0x7F && cp <= 0x9F)) return false
-  return true
-}
+import { isValidKeyChar, normalizeLine } from '../lib/tokenizer'
 
 export function reducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
@@ -43,7 +35,7 @@ export function reducer(state: AppState, action: AppAction): AppState {
       const { keyCode, character } = action
 
       // Validate character
-      if (character !== null && !isPrintableChar(character)) {
+      if (character !== null && !isValidKeyChar(character)) {
         return state
       }
 
@@ -79,7 +71,7 @@ export function reducer(state: AppState, action: AppAction): AppState {
       const { keyCode, character } = action
 
       // Validate character
-      if (character !== null && !isPrintableChar(character)) {
+      if (character !== null && !isValidKeyChar(character)) {
         return state
       }
 
@@ -118,7 +110,7 @@ export function reducer(state: AppState, action: AppAction): AppState {
           const trimmed = line.trim()
           if (trimmed === '') return null
           
-          const text = trimmed.toLowerCase()
+          const text = normalizeLine(trimmed)
           
           // Try to preserve ID if text matches an existing entry at the same position
           const existingEntry = state.wordEntries[index]
@@ -243,7 +235,7 @@ export function reducer(state: AppState, action: AppAction): AppState {
       const currentKeyAssignments = state[otherField]
 
       // Validate character
-      if (character !== null && !isPrintableChar(character)) {
+      if (character !== null && !isValidKeyChar(character)) {
         return state
       }
 

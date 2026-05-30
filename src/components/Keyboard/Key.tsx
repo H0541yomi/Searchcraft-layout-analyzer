@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import type { PhysicalKeyDef, KeyAssignment, FingerEnum } from '../../types'
 import { useAppDispatch } from '../../state/AppContext'
 import { FINGER_COLORS, KEY_UNIT_PX } from '../../config'
+import { normalizeKeyInput } from '../../lib/tokenizer'
 
 interface KeyProps {
   keyDef: PhysicalKeyDef
@@ -68,18 +69,14 @@ export function Key({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      const value = e.currentTarget.value.trim()
-      const firstChar = value ? [...value][0] : null
-      onConfirmEdit(firstChar)
+      onConfirmEdit(normalizeKeyInput(e.currentTarget.value))
     } else if (e.key === 'Escape') {
       onCancelEdit()
     }
   }
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const value = e.currentTarget.value.trim()
-    const firstChar = value ? [...value][0] : null
-    onConfirmEdit(firstChar)
+    onConfirmEdit(normalizeKeyInput(e.currentTarget.value))
   }
 
   const handleFingerSelect = (finger: FingerEnum | null) => {
@@ -195,7 +192,9 @@ export function Key({
       ) : (
         <>
           {assignment.character && (
-            <span className="key-label">{assignment.character === ' ' ? '␣' : assignment.character}</span>
+            <span className={`key-label${assignment.character.length > 1 ? ' key-label--token' : ''}`}>
+              {assignment.character === ' ' ? '␣' : assignment.character}
+            </span>
           )}
           {isDragOver && (
             <div className="key-swap-icon">⇄</div>

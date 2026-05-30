@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { MouseKeyDef } from '../../data/mouse-layout'
 import { useAppDispatch } from '../../state/AppContext'
+import { normalizeKeyInput } from '../../lib/tokenizer'
 
 interface MouseKeyProps {
   keyDef: MouseKeyDef
@@ -16,8 +17,7 @@ export function MouseKey({ keyDef, character, layer }: MouseKeyProps) {
   const handleClick = () => setIsEditing(true)
 
   const confirm = (value: string) => {
-    const firstChar = value.trim() ? [...value.trim()][0] : null
-    dispatch({ type: 'SET_MOUSE_CHARACTER', keyCode: keyDef.code, character: firstChar, layer })
+    dispatch({ type: 'SET_MOUSE_CHARACTER', keyCode: keyDef.code, character: normalizeKeyInput(value), layer })
     setIsEditing(false)
   }
 
@@ -49,7 +49,7 @@ export function MouseKey({ keyDef, character, layer }: MouseKeyProps) {
         />
       ) : (
         <>
-          <span className="mouse-key-label">
+          <span className={`mouse-key-label${character && character.length > 1 ? ' key-label--token' : ''}`}>
             {character ? (character === ' ' ? '␣' : character) : ''}
           </span>
           <span className="mouse-key-sublabel">{keyDef.label}</span>

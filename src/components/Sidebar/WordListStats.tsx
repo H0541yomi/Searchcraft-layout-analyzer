@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useAppState } from '../../state/AppContext'
+import { tokenizeWord } from '../../lib/tokenizer'
 
 export function WordListStats() {
   const state = useAppState()
@@ -9,8 +10,8 @@ export function WordListStats() {
     const charSet = new Set<string>()
 
     for (const entry of state.wordEntries) {
-      for (const char of entry.text) {
-        charSet.add(char)
+      for (const tok of tokenizeWord(entry.text)) {
+        charSet.add(tok)
       }
     }
 

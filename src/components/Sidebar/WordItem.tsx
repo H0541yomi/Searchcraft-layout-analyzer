@@ -1,4 +1,5 @@
 import type { WordEntry, WordAnalysis, FlagType } from '../../types'
+import { Tooltip } from '../Tooltip'
 
 const FLAG_LABELS: Record<FlagType, string> = {
   roll: 'roll',
@@ -44,10 +45,7 @@ export function WordItem({ entry, analysis, onToggleOverride }: WordItemProps) {
       <span className="word-item-text">{entry.text}</span>
       {showCheckmark && <span className="word-item-check">✓</span>}
       {showWarning && (
-        <span className="tooltip-wrap">
-          <span className="word-item-warn">!</span>
-          <span className="tooltip-box">untypable</span>
-        </span>
+        <Tooltip text="untypable" className="word-item-warn">!</Tooltip>
       )}
       {isFlagged && !isUntypable && !isOverridden && triggeredFlags.map(flag => (
         <span key={flag} className="word-item-flag-badge">{FLAG_LABELS[flag]}</span>

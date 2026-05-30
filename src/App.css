@@ -275,17 +275,9 @@
   cursor: default;
 }
 
-.tooltip-wrap {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
-
 .tooltip-box {
-  position: absolute;
-  bottom: calc(100% + 4px);
-  left: 50%;
-  transform: translateX(-50%);
+  position: fixed;
+  transform: translate(-50%, calc(-100% - 6px));
   background: #222;
   color: #fff;
   font-size: 11px;
@@ -294,13 +286,7 @@
   border-radius: 4px;
   white-space: nowrap;
   pointer-events: none;
-  opacity: 0;
-  transition: opacity 0s;
-  z-index: 100;
-}
-
-.tooltip-wrap:hover .tooltip-box {
-  opacity: 1;
+  z-index: 99999;
 }
 
 .word-item-flag-badge {

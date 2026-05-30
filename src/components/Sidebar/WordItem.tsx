@@ -28,7 +28,7 @@ export function WordItem({ entry, analysis, onToggleOverride }: WordItemProps) {
 
   const className = [
     'word-item',
-    isFlagged && !isOverridden ? 'word-item--flagged' : '',
+    isFlagged && !isUntypable && !isOverridden ? 'word-item--flagged' : '',
     isUntypable && !isOverridden ? 'word-item--untypable' : '',
     isOverridden ? 'word-item--overridden' : '',
   ]
@@ -44,7 +44,7 @@ export function WordItem({ entry, analysis, onToggleOverride }: WordItemProps) {
       <span className="word-item-text">{entry.text}</span>
       {showCheckmark && <span className="word-item-check">✓</span>}
       {showWarning && <span className="word-item-warn" title="untypable">!</span>}
-      {isFlagged && !isOverridden && triggeredFlags.map(flag => (
+      {isFlagged && !isUntypable && !isOverridden && triggeredFlags.map(flag => (
         <span key={flag} className="word-item-flag-badge">{FLAG_LABELS[flag]}</span>
       ))}
       {(isFlagged || isOverridden) && (

@@ -99,6 +99,35 @@
   filter: brightness(0.92);
 }
 
+/* Drag and drop styles */
+.key--dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+.key--drag-active {
+  box-shadow: 0 0 0 1px rgba(33, 150, 243, 0.2);
+}
+
+.key--drag-over {
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.6), 0 0 12px rgba(33, 150, 243, 0.4);
+  border-color: #2196F3;
+  transform: scale(1.02);
+}
+
+.key-swap-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  color: #2196F3;
+  font-weight: bold;
+  pointer-events: none;
+  z-index: 5;
+  text-shadow: 0 0 4px white, 0 0 8px white;
+}
+
 .key-label {
   font-weight: 600;
   font-size: 13px;

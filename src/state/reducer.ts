@@ -281,6 +281,48 @@ export function reducer(state: AppState, action: AppAction): AppState {
       }
     }
 
+    case 'SWAP_CHARACTERS': {
+      const { keyCodeA, keyCodeB } = action
+      const charA = state.keyAssignments[keyCodeA]?.character ?? null
+      const charB = state.keyAssignments[keyCodeB]?.character ?? null
+
+      return {
+        ...state,
+        keyAssignments: {
+          ...state.keyAssignments,
+          [keyCodeA]: {
+            ...state.keyAssignments[keyCodeA],
+            character: charB,
+          },
+          [keyCodeB]: {
+            ...state.keyAssignments[keyCodeB],
+            character: charA,
+          },
+        },
+      }
+    }
+
+    case 'SWAP_SHIFT_CHARACTERS': {
+      const { keyCodeA, keyCodeB } = action
+      const charA = state.shiftKeyAssignments[keyCodeA]?.character ?? null
+      const charB = state.shiftKeyAssignments[keyCodeB]?.character ?? null
+
+      return {
+        ...state,
+        shiftKeyAssignments: {
+          ...state.shiftKeyAssignments,
+          [keyCodeA]: {
+            ...state.shiftKeyAssignments[keyCodeA],
+            character: charB,
+          },
+          [keyCodeB]: {
+            ...state.shiftKeyAssignments[keyCodeB],
+            character: charA,
+          },
+        },
+      }
+    }
+
     default:
       return state
   }

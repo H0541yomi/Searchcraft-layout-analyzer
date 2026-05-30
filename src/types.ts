@@ -70,4 +70,5 @@ export type AppAction =
   | { type: 'RESET_SHIFT_DEFAULTS' }
   | { type: 'TOGGLE_SHIFT_LAYER' }
   | { type: 'TOGGLE_SHOW_ARROWS' }
-
+  | { type: 'SWAP_CHARACTERS'; keyCodeA: PhysicalKeyCode; keyCodeB: PhysicalKeyCode }
+  | { type: 'SWAP_SHIFT_CHARACTERS'; keyCodeA: PhysicalKeyCode; keyCodeB: PhysicalKeyCode }

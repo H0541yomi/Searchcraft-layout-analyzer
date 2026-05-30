@@ -55,6 +55,21 @@ export interface AppState {
   sfsGap: number
   showShiftLayer: boolean
   showArrows: boolean
+  showNodes: boolean
+  showBadness: boolean
+}
+
+export interface ConfigData {
+  keyAssignments: Record<PhysicalKeyCode, KeyAssignment>
+  shiftKeyAssignments: Record<PhysicalKeyCode, KeyAssignment>
+  mouseAssignments: Record<string, string | null>
+  shiftMouseAssignments: Record<string, string | null>
+}
+
+export interface SavedConfig {
+  id: string
+  name: string
+  data: ConfigData
 }
 
 export type AppAction =
@@ -71,5 +86,8 @@ export type AppAction =
   | { type: 'RESET_SHIFT_DEFAULTS' }
   | { type: 'TOGGLE_SHIFT_LAYER' }
   | { type: 'TOGGLE_SHOW_ARROWS' }
+  | { type: 'TOGGLE_SHOW_NODES' }
+  | { type: 'TOGGLE_SHOW_BADNESS' }
+  | { type: 'LOAD_CONFIG'; data: ConfigData }
   | { type: 'SWAP_CHARACTERS'; keyCodeA: PhysicalKeyCode; keyCodeB: PhysicalKeyCode }
   | { type: 'SWAP_SHIFT_CHARACTERS'; keyCodeA: PhysicalKeyCode; keyCodeB: PhysicalKeyCode }

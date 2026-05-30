@@ -14,6 +14,8 @@ const KEYS = {
   sfsGap: 'skp-sfs-gap',
   showShiftLayer: 'skp-show-shift-layer',
   showArrows: 'skp-show-arrows',
+  showNodes: 'skp-show-nodes',
+  showBadness: 'skp-show-badness',
 } as const
 
 export function getDefaultState(): AppState {
@@ -39,6 +41,8 @@ export function getDefaultState(): AppState {
     sfsGap: CONFIG.SFS_GAP_DEFAULT,
     showShiftLayer: false,
     showArrows: true,
+    showNodes: true,
+    showBadness: true,
   }
 }
 
@@ -55,6 +59,8 @@ export function loadState(): AppState {
     const sfsGapRaw = localStorage.getItem(KEYS.sfsGap)
     const showShiftLayerRaw = localStorage.getItem(KEYS.showShiftLayer)
     const showArrowsRaw = localStorage.getItem(KEYS.showArrows)
+    const showNodesRaw = localStorage.getItem(KEYS.showNodes)
+    const showBadnessRaw = localStorage.getItem(KEYS.showBadness)
 
     const keyAssignments = assignmentsRaw
       ? JSON.parse(assignmentsRaw)
@@ -92,6 +98,14 @@ export function loadState(): AppState {
       ? JSON.parse(showArrowsRaw)
       : defaults.showArrows
 
+    const showNodes = showNodesRaw
+      ? JSON.parse(showNodesRaw)
+      : defaults.showNodes
+
+    const showBadness = showBadnessRaw
+      ? JSON.parse(showBadnessRaw)
+      : defaults.showBadness
+
     return {
       keyAssignments,
       shiftKeyAssignments,
@@ -102,6 +116,8 @@ export function loadState(): AppState {
       sfsGap,
       showShiftLayer,
       showArrows,
+      showNodes,
+      showBadness,
     }
   } catch (error) {
     console.warn('Failed to parse LocalStorage, using defaults:', error)
@@ -120,6 +136,8 @@ export function saveState(state: AppState): void {
     localStorage.setItem(KEYS.sfsGap, JSON.stringify(state.sfsGap))
     localStorage.setItem(KEYS.showShiftLayer, JSON.stringify(state.showShiftLayer))
     localStorage.setItem(KEYS.showArrows, JSON.stringify(state.showArrows))
+    localStorage.setItem(KEYS.showNodes, JSON.stringify(state.showNodes))
+    localStorage.setItem(KEYS.showBadness, JSON.stringify(state.showBadness))
   } catch (error) {
     console.error('Failed to save state to LocalStorage:', error)
   }

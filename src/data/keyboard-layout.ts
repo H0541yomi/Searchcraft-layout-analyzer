@@ -77,12 +77,15 @@ export const KEYBOARD_LAYOUT: PhysicalKeyDef[] = [
   { code: 'Slash', label: '/', row: 3, column: 10, width: 1.0 },
   { code: 'ShiftRight', label: '⇧', row: 3, column: 11, width: 2.75 },
 
-  // Row 4: Modifier row
-  { code: 'ControlLeft', label: 'Ctrl', row: 4, column: 0, width: 1.75 },
-  { code: 'AltLeft', label: 'Alt', row: 4, column: 1, width: 1.25 },
-  { code: 'Space', label: 'Space', row: 4, column: 2, width: 7.25 },
-  { code: 'AltRight', label: 'Alt', row: 4, column: 3, width: 1.25 },
-  { code: 'ControlRight', label: 'Ctrl', row: 4, column: 4, width: 1.75 },
+  // Row 4: Modifier row (Windows layout: 3 left of space, 4 right)
+  { code: 'ControlLeft',  label: 'Ctrl', row: 4, column: 0, width: 1.25 },
+  { code: 'MetaLeft',     label: 'Win',  row: 4, column: 1, width: 1.25 },
+  { code: 'AltLeft',      label: 'Alt',  row: 4, column: 2, width: 1.25 },
+  { code: 'Space',        label: 'Space',row: 4, column: 3, width: 6.25 },
+  { code: 'AltRight',     label: 'Alt',  row: 4, column: 4, width: 1.25 },
+  { code: 'MetaRight',    label: 'Win',  row: 4, column: 5, width: 1.25 },
+  { code: 'ContextMenu',  label: 'Menu', row: 4, column: 6, width: 1.25 },
+  { code: 'ControlRight', label: 'Ctrl', row: 4, column: 7, width: 1.25 },
 ]
 
 export const KEYS_BY_CODE: Record<string, PhysicalKeyDef> = Object.fromEntries(

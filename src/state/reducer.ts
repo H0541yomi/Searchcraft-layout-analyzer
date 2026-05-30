@@ -221,9 +221,25 @@ export function reducer(state: AppState, action: AppAction): AppState {
     }
 
     case 'TOGGLE_SHOW_ARROWS': {
+      return { ...state, showArrows: !state.showArrows }
+    }
+
+    case 'TOGGLE_SHOW_NODES': {
+      return { ...state, showNodes: !state.showNodes }
+    }
+
+    case 'TOGGLE_SHOW_BADNESS': {
+      return { ...state, showBadness: !state.showBadness }
+    }
+
+    case 'LOAD_CONFIG': {
+      const { data } = action
       return {
         ...state,
-        showArrows: !state.showArrows,
+        keyAssignments: data.keyAssignments,
+        shiftKeyAssignments: data.shiftKeyAssignments,
+        mouseAssignments: data.mouseAssignments,
+        shiftMouseAssignments: data.shiftMouseAssignments,
       }
     }
 

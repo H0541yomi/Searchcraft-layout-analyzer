@@ -32,6 +32,7 @@ export function GraphEdge({
         stroke={`rgba(80, 80, 150, ${opacity})`}
         strokeWidth={2}
         markerEnd={`url(#${markerId})`}
+        style={{ transition: 'stroke 0.1s ease' }}
       />
     )
   }
@@ -84,6 +85,7 @@ export function GraphEdge({
       stroke={`rgba(80, 80, 150, ${opacity})`}
       strokeWidth={2}
       markerEnd={`url(#${markerId})`}
+      style={{ transition: 'stroke 0.1s ease' }}
     />
   )
 }

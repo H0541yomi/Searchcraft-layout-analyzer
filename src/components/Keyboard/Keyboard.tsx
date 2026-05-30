@@ -15,6 +15,7 @@ export function Keyboard({ layer = 'main' }: KeyboardProps) {
   const [editingKeyCode, setEditingKeyCode] = useState<string | null>(null)
   const [draggedKeyCode, setDraggedKeyCode] = useState<string | null>(null)
   const [dragOverKeyCode, setDragOverKeyCode] = useState<string | null>(null)
+  const [hoveredKeyChar, setHoveredKeyChar] = useState<string | null>(null)
 
   const isShiftLayer = layer === 'shift'
   const assignments = isShiftLayer ? state.shiftKeyAssignments : state.keyAssignments
@@ -81,10 +82,11 @@ export function Keyboard({ layer = 'main' }: KeyboardProps) {
             onDragEnter={handleDragEnter}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
+            onKeyHover={setHoveredKeyChar}
           />
         ))}
       </div>
-      <GraphOverlay layer={layer} />
+      <GraphOverlay layer={layer} hoveredKeyChar={hoveredKeyChar} />
     </div>
   )
 }

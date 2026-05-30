@@ -8,6 +8,41 @@ export interface AnalysisResult {
   nodeBadness: Map<string, number>
 }
 
+/** Tokens that split a word into independent sequences for flagging. */
+const SEPARATOR_TOKENS = new Set(['[BS]', '[Home]'])
+
+/**
+ * Split token array at separators. Each separator starts a new segment
+ * (it becomes the first token of that segment).
+ * Returns segments with their start offset in the original array.
+ */
+function splitAtSeparators(chars: string[]): Array<{ tokens: string[]; offset: number }> {
+  const segments: Array<{ tokens: string[]; offset: number }> = []
+  let current: string[] = []
+  let currentOffset = 0
+
+  for (let i = 0; i < chars.length; i++) {
+    if (SEPARATOR_TOKENS.has(chars[i]) && i > 0) {
+      // End previous segment (without the separator)
+      if (current.length > 0) {
+        segments.push({ tokens: current, offset: currentOffset })
+      }
+      // Start new segment with separator as first token
+      current = [chars[i]]
+      currentOffset = i
+    } else {
+      if (current.length === 0) currentOffset = i
+      current.push(chars[i])
+    }
+  }
+
+  if (current.length > 0) {
+    segments.push({ tokens: current, offset: currentOffset })
+  }
+
+  return segments
+}
+
 export function analyzeWords(
   entries: WordEntry[],
   keyAssignments: Record<string, KeyAssignment>,
@@ -85,33 +120,41 @@ export function analyzeWords(
       continue
     }
 
-    // Run active detectors
+    // Split at separator tokens ([BS], [Home]) before running detectors
+    const segments = splitAtSeparators(chars)
+
+    // Run active detectors on each segment, offsetting charIndices
     const flaggedPatterns = []
 
-    if (flags.sfb) {
-      flaggedPatterns.push(...detectSFBs(chars, fingerOf))
-    }
+    for (const { tokens: seg, offset } of segments) {
+      const offsetPatterns = (patterns: ReturnType<typeof detectSFBs>) =>
+        patterns.map(p => ({ ...p, charIndices: p.charIndices.map(i => i + offset) }))
 
-    if (flags.sfs) {
-      flaggedPatterns.push(...detectSFS(chars, fingerOf, sfsGap, mouseChars))
-    }
-
-    if (flags.roll || flags.outward_roll || flags.inward_roll) {
-      const rolls = detectRolls(chars, fingerOf)
-      if (flags.roll || flags.outward_roll) {
-        flaggedPatterns.push(...rolls.outward)
+      if (flags.sfb) {
+        flaggedPatterns.push(...offsetPatterns(detectSFBs(seg, fingerOf)))
       }
-      if (flags.roll || flags.inward_roll) {
-        flaggedPatterns.push(...rolls.inward)
+
+      if (flags.sfs) {
+        flaggedPatterns.push(...offsetPatterns(detectSFS(seg, fingerOf, sfsGap, mouseChars)))
       }
-    }
 
-    if (flags.redirect) {
-      flaggedPatterns.push(...detectRedirects(chars, fingerOf))
-    }
+      if (flags.roll || flags.outward_roll || flags.inward_roll) {
+        const rolls = detectRolls(seg, fingerOf)
+        if (flags.roll || flags.outward_roll) {
+          flaggedPatterns.push(...offsetPatterns(rolls.outward))
+        }
+        if (flags.roll || flags.inward_roll) {
+          flaggedPatterns.push(...offsetPatterns(rolls.inward))
+        }
+      }
 
-    if (flags.scissor) {
-      flaggedPatterns.push(...detectScissors(chars, fingerOf, rowOf))
+      if (flags.redirect) {
+        flaggedPatterns.push(...offsetPatterns(detectRedirects(seg, fingerOf)))
+      }
+
+      if (flags.scissor) {
+        flaggedPatterns.push(...offsetPatterns(detectScissors(seg, fingerOf, rowOf)))
+      }
     }
 
     const isFlagged = flaggedPatterns.length > 0

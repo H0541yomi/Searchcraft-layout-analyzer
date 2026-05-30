@@ -11,6 +11,7 @@
   border-bottom: 1px solid #e0e0e0;
   background: white;
   display: flex;
+  justify-content: space-between;
   align-items: center;
   gap: 16px;
 }
@@ -25,6 +26,73 @@
   color: #666;
   font-size: 0.85rem;
   flex: 1;
+}
+
+.config-manager {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-config {
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.btn-config:hover {
+  background: #f5f5f5;
+}
+
+.config-dropdown {
+  position: fixed;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  min-width: 240px;
+  z-index: 9999;
+  overflow: hidden;
+}
+
+.config-dropdown-item {
+  padding: 7px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.config-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.config-dropdown-item:hover {
+  background: #f0f0f0;
+}
+
+.btn-delete-config {
+  padding: 2px 6px;
+  font-size: 12px;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  color: #d32f2f;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.btn-delete-config:hover {
+  background: #ffebee;
+  border-color: #d32f2f;
 }
 
 .btn-reset {
@@ -90,6 +158,7 @@
   align-items: center;
   justify-content: center;
   position: relative;
+  z-index: 1;
   user-select: none;
   transition: filter 0.1s, opacity 0.15s, box-shadow 0.15s;
   font-size: 11px;
@@ -185,6 +254,7 @@
   left: 0;
   pointer-events: none;
   overflow: visible;
+  z-index: 1;
 }
 
 /* Finger legend */
@@ -316,6 +386,35 @@
   background: #f0f0f0;
 }
 
+.unbound-chars {
+  font-size: 11px;
+  color: #666;
+  padding: 6px 0 2px;
+}
+
+.unbound-chars-label {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #555;
+}
+
+.unbound-chars-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.unbound-char {
+  display: inline-block;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: #b35c00;
+}
+
 .stats {
   font-size: 11px;
   color: #666;
@@ -363,6 +462,9 @@
 .modal-dialog p, .modal-dialog li { font-size: 13px; line-height: 1.6; color: #444; }
 .modal-dialog ul { padding-left: 20px; }
 .modal-dialog li { margin-bottom: 4px; }
+.modal-dialog a { color: #1976d2; text-decoration: none; transition: color 0.15s; }
+.modal-dialog a:hover { color: #1565c0; text-decoration: underline; }
+.modal-dialog a:active { color: #0d47a1; }
 
 /* Mouse keys */
 .keyboard-with-mouse {

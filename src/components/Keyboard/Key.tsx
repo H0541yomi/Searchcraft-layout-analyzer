@@ -21,6 +21,7 @@ interface KeyProps {
   onDragEnter?: () => void
   onDragLeave?: () => void
   onDrop?: () => void
+  onHoverChange?: (char: string | null) => void
 }
 
 export function Key({
@@ -39,6 +40,7 @@ export function Key({
   onDragEnter,
   onDragLeave,
   onDrop,
+  onHoverChange,
 }: KeyProps) {
   const dispatch = useAppDispatch()
   const fingerAction = layer === 'shift' ? 'SET_SHIFT_FINGER' : 'SET_FINGER'
@@ -170,6 +172,8 @@ export function Key({
         height: `${height}px`,
         backgroundColor,
       }}
+      onMouseEnter={() => onHoverChange?.(assignment.character)}
+      onMouseLeave={() => onHoverChange?.(null)}
       draggable={!isEditing}
       onClick={handleClick}
       onContextMenu={handleRightClick}

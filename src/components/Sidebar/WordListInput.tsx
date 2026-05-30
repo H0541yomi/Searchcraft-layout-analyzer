@@ -37,7 +37,7 @@ export function WordListInput() {
       className="word-list-input"
       value={localValue}
       onChange={handleChange}
-      placeholder="Enter words/phrases, one per line..."
+      placeholder="Searchcrafting terms (one per line)"
       spellCheck={false}
     />
   )

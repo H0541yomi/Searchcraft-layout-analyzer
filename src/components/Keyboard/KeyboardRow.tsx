@@ -17,6 +17,7 @@ interface KeyboardRowProps {
   onDragEnter: (code: string) => void
   onDragLeave: () => void
   onDrop: (code: string) => void
+  onKeyHover: (char: string | null) => void
 }
 
 export function KeyboardRow({
@@ -34,6 +35,7 @@ export function KeyboardRow({
   onDragEnter,
   onDragLeave,
   onDrop,
+  onKeyHover,
 }: KeyboardRowProps) {
   return (
     <div className="keyboard-row" style={{ gap: `${KEY_GAP_PX}px` }}>
@@ -41,7 +43,7 @@ export function KeyboardRow({
         <Key
           key={key.code}
           keyDef={key}
-          assignment={assignments[key.code]}
+          assignment={assignments[key.code] ?? { character: null, finger: null }}
           isEditing={editingKeyCode === key.code}
           onStartEdit={() => onStartEdit(key.code)}
           onConfirmEdit={(char) => onConfirmEdit(key.code, char)}
@@ -55,6 +57,7 @@ export function KeyboardRow({
           onDragEnter={() => onDragEnter(key.code)}
           onDragLeave={onDragLeave}
           onDrop={() => onDrop(key.code)}
+          onHoverChange={onKeyHover}
         />
       ))}
     </div>

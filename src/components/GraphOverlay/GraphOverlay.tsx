@@ -3,16 +3,19 @@ import { buildKeyPixelMap, getKeyboardDimensions } from '../../lib/keyboard-util
 import { buildGraph } from '../../lib/graph'
 import { analyzeWords } from '../../lib/analysis'
 import { useAppState } from '../../state/AppContext'
+import { useWordHighlight } from '../../state/WordHighlightContext'
 import { CONFIG } from '../../config'
 import { GraphNode } from './GraphNode'
 import { GraphEdge } from './GraphEdge'
 
 interface GraphOverlayProps {
   layer?: 'main' | 'shift'
+  hoveredKeyChar?: string | null
 }
 
-export function GraphOverlay({ layer = 'main' }: GraphOverlayProps) {
+export function GraphOverlay({ layer = 'main', hoveredKeyChar = null }: GraphOverlayProps) {
   const state = useAppState()
+  const { highlightedChars } = useWordHighlight()
 
   // Each overlay only shows chars from its own layer
   const layerAssignments = layer === 'shift' ? state.shiftKeyAssignments : state.keyAssignments
@@ -79,6 +82,34 @@ export function GraphOverlay({ layer = 'main' }: GraphOverlayProps) {
     return max || 1
   }, [edges])
 
+  // Compute which chars are directly connected to hoveredKeyChar
+  const hoveredConnectedChars = useMemo(() => {
+    if (hoveredKeyChar === null) return null
+    const set = new Set<string>([hoveredKeyChar])
+    for (const edge of edges.values()) {
+      if (edge.source === hoveredKeyChar) set.add(edge.target)
+      if (edge.target === hoveredKeyChar) set.add(edge.source)
+    }
+    return set
+  }, [hoveredKeyChar, edges])
+
+  // Visibility helpers — key hover takes priority over word highlight
+  const isNodeVisible = (char: string): boolean => {
+    if (hoveredKeyChar !== null) return hoveredConnectedChars!.has(char)
+    if (highlightedChars !== null) return highlightedChars.has(char)
+    return true
+  }
+
+  const isEdgeVisible = (source: string, target: string): boolean => {
+    if (hoveredKeyChar !== null) {
+      return source === hoveredKeyChar || target === hoveredKeyChar
+    }
+    if (highlightedChars !== null) {
+      return highlightedChars.has(source) && highlightedChars.has(target)
+    }
+    return true
+  }
+
   // Build bidirectional edge map
   const bidirectionalEdges = useMemo(() => {
     const set = new Set<string>()
@@ -141,23 +172,25 @@ export function GraphOverlay({ layer = 'main' }: GraphOverlayProps) {
 
         const edgeKey = `${edge.source}→${edge.target}`
         const isBidirectional = bidirectionalEdges.has(edgeKey)
+        const visible = isEdgeVisible(edge.source, edge.target)
 
         return (
-          <GraphEdge
-            key={edgeKey}
-            x1={sourcePixel.centerX}
-            y1={sourcePixel.centerY}
-            x2={targetPixel.centerX}
-            y2={targetPixel.centerY}
-            opacity={opacity}
-            isBidirectional={isBidirectional}
-            markerId={`arrowhead-${edgeIdx}`}
-          />
+          <g key={edgeKey} style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.1s ease' }}>
+            <GraphEdge
+              x1={sourcePixel.centerX}
+              y1={sourcePixel.centerY}
+              x2={targetPixel.centerX}
+              y2={targetPixel.centerY}
+              opacity={opacity}
+              isBidirectional={isBidirectional}
+              markerId={`arrowhead-${edgeIdx}`}
+            />
+          </g>
         )
       })}
 
       {/* Render nodes on top */}
-      {Array.from(nodes.values()).map(node => {
+      {state.showNodes && Array.from(nodes.values()).map(node => {
         const keyCode = charToKey.get(node.character)
         if (!keyCode) return null
 
@@ -183,6 +216,8 @@ export function GraphOverlay({ layer = 'main' }: GraphOverlayProps) {
             )
           : 0
 
+        const visible = isNodeVisible(node.character)
+
         return (
           <GraphNode
             key={node.character}
@@ -190,6 +225,8 @@ export function GraphOverlay({ layer = 'main' }: GraphOverlayProps) {
             centerY={pixel.centerY}
             diameter={diameter}
             badnessIntensity={badnessIntensity}
+            visible={visible}
+            showBadness={state.showBadness}
           />
         )
       })}

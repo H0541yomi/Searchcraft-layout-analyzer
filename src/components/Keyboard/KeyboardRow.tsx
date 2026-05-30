@@ -10,6 +10,13 @@ interface KeyboardRowProps {
   onConfirmEdit: (code: string, char: string | null) => void
   onCancelEdit: () => void
   layer?: 'main' | 'shift'
+  draggedKeyCode: string | null
+  dragOverKeyCode: string | null
+  onDragStart: (code: string) => void
+  onDragEnd: () => void
+  onDragEnter: (code: string) => void
+  onDragLeave: () => void
+  onDrop: (code: string) => void
 }
 
 export function KeyboardRow({
@@ -20,6 +27,13 @@ export function KeyboardRow({
   onConfirmEdit,
   onCancelEdit,
   layer = 'main',
+  draggedKeyCode,
+  dragOverKeyCode,
+  onDragStart,
+  onDragEnd,
+  onDragEnter,
+  onDragLeave,
+  onDrop,
 }: KeyboardRowProps) {
   return (
     <div className="keyboard-row" style={{ gap: `${KEY_GAP_PX}px` }}>
@@ -33,6 +47,14 @@ export function KeyboardRow({
           onConfirmEdit={(char) => onConfirmEdit(key.code, char)}
           onCancelEdit={onCancelEdit}
           layer={layer}
+          isDragging={draggedKeyCode === key.code}
+          isDragOver={dragOverKeyCode === key.code}
+          isDragActive={draggedKeyCode !== null}
+          onDragStart={() => onDragStart(key.code)}
+          onDragEnd={onDragEnd}
+          onDragEnter={() => onDragEnter(key.code)}
+          onDragLeave={onDragLeave}
+          onDrop={() => onDrop(key.code)}
         />
       ))}
     </div>

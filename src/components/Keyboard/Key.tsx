@@ -12,6 +12,14 @@ interface KeyProps {
   onConfirmEdit: (char: string | null) => void
   onCancelEdit: () => void
   layer?: 'main' | 'shift'
+  isDragging?: boolean
+  isDragOver?: boolean
+  isDragActive?: boolean
+  onDragStart?: () => void
+  onDragEnd?: () => void
+  onDragEnter?: () => void
+  onDragLeave?: () => void
+  onDrop?: () => void
 }
 
 export function Key({
@@ -22,6 +30,14 @@ export function Key({
   onConfirmEdit,
   onCancelEdit,
   layer = 'main',
+  isDragging = false,
+  isDragOver = false,
+  isDragActive = false,
+  onDragStart,
+  onDragEnd,
+  onDragEnter,
+  onDragLeave,
+  onDrop,
 }: KeyProps) {
   const dispatch = useAppDispatch()
   const fingerAction = layer === 'shift' ? 'SET_SHIFT_FINGER' : 'SET_FINGER'
@@ -34,7 +50,7 @@ export function Key({
     : FINGER_COLORS.UNASSIGNED
 
   const handleClick = (e: React.MouseEvent) => {
-    if (e.button !== 0) return
+    if (e.button !== 0) return  // only left-click opens edit
     onStartEdit()
   }
 
@@ -78,6 +94,7 @@ export function Key({
     }
   }, [isEditing])
 
+  // Close dropdown on outside click
   useEffect(() => {
     if (!showDropdown) return
 
@@ -94,10 +111,41 @@ export function Key({
   const width = keyDef.width * KEY_UNIT_PX
   const height = KEY_UNIT_PX
 
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = 'move'
+    onDragStart?.()
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault()
+    onDragEnter?.()
+  }
+
+  const handleDragLeave = () => {
+    onDragLeave?.()
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    onDrop?.()
+  }
+
+  const handleDragEnd = () => {
+    onDragEnd?.()
+  }
+
   const keyClassNames = [
     'key',
     assignment.character ? 'key--assigned' : 'key--unassigned',
-  ].join(' ')
+    isDragging && 'key--dragging',
+    isDragOver && 'key--drag-over',
+    isDragActive && !isDragging && 'key--drag-active',
+  ].filter(Boolean).join(' ')
 
   const dropdown = showDropdown ? createPortal(
     <div
@@ -125,8 +173,15 @@ export function Key({
         height: `${height}px`,
         backgroundColor,
       }}
+      draggable={!isEditing}
       onClick={handleClick}
       onContextMenu={handleRightClick}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      onDragEnd={handleDragEnd}
     >
       {isEditing ? (
         <input
@@ -141,6 +196,9 @@ export function Key({
         <>
           {assignment.character && (
             <span className="key-label">{assignment.character === ' ' ? '␣' : assignment.character}</span>
+          )}
+          {isDragOver && (
+            <div className="key-swap-icon">⇄</div>
           )}
         </>
       )}

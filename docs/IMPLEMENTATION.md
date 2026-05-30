@@ -1,229 +1,604 @@
-# Implementation Guide
+# Implementation Reference
 
-## Build Order
+**Title:** SearchCraft Keybind Planner — What Was Built
+**Last Updated:** 2025-05-29
+**Status:** Complete and functional
 
-Phases are sequential — each depends on the previous. Within each phase, tasks can be parallelized where noted.
-
----
-
-### Phase 1: Foundation
-
-**Goal:** Keyboard renders, finger/character assignment works, state persists.
-
-#### Tasks
-
-1. **`src/config.ts`** — All constants from PRD §6 (colors, thresholds, sizing, row assignments, finger ordering). Every magic number lives here.
-
-2. **`src/types.ts`** — TypeScript types: `FingerEnum`, `FlagType`, `PhysicalKeyCode`, `KeyAssignment`, `WordEntry`, `GraphNode`, `GraphEdge`, `AppState`, `AppAction`.
-
-3. **`src/data/keyboard-layout.ts`** — Static array of all physical keys with `code`, `label`, `row`, `column`, `width`. Include:
-   - F1–F12 (row -1, width 1)
-   - Number row: `` ` ``, 1–0, `-`, `=` (row 0)
-   - Alpha rows with Tab, CapsLock, LShift, RShift (rows 1–3)
-   - Bottom mod row: LCtrl, LAlt, Space (width ~6), RAlt, RCtrl (row 4)
-   
-4. **`src/data/default-assignments.ts`** — Default finger + character map for left-hand QWERTY keys. Everything else = `{ character: null, finger: null }`.
-
-5. **`src/state/`** — Context + reducer:
-   - `AppContext.tsx` — React context provider
-   - `reducer.ts` — Handles: `SET_FINGER`, `SET_CHARACTER`, `SET_WORD_LIST`, `TOGGLE_FLAG`, `SET_SFS_GAP`, `TOGGLE_OVERRIDE`, `CLEAR_OVERRIDES`, `RESET_DEFAULTS`
-   - `persistence.ts` — LocalStorage read/write helpers with fallback
-
-6. **`src/components/Keyboard/`** — `Keyboard.tsx`, `KeyboardRow.tsx`, `Key.tsx`
-   - Render full ANSI layout from static data
-   - Color keys by finger assignment
-   - Click → cycle finger
-   - Double-click → inline character edit
-   - Right-click → finger dropdown
-
-7. **`src/components/FingerLegend.tsx`** — Color swatches + labels for 5 fingers + unassigned
-
-#### Acceptance Gate
-- All keys render at correct positions/sizes
-- F-keys same size as alpha keys
-- Left-hand keys colored, right-hand keys gray
-- Click cycles fingers, double-click edits character
-- Character uniqueness enforced (moving clears old key)
-- State survives page reload
+This document describes the current implementation of the app. It is a post-implementation reference, not a build plan. For planned future work, see PRD §8 (Out of Scope).
 
 ---
 
-### Phase 2: Word List + Graph
+## 1. Build Summary
 
-**Goal:** Sidebar accepts words, directed graph constructed correctly.
+**All features implemented.** 33 source files across 6 major functional areas:
 
-#### Tasks
+1. **Configuration + Types** (config.ts, types.ts)
+2. **Data Definitions** (3 files: keyboard layout, mouse layout, default assignments)
+3. **State Management** (3 files: context, reducer, persistence)
+4. **Pure Function Libraries** (4 files: graph, detection, analysis, keyboard-utils)
+5. **UI Components** (18 files: header, legend, keyboard, graph, mouse, sidebar)
+6. **App Root** (app, main entry)
 
-1. **`src/lib/graph.ts`** — `buildGraph(words: string[], charToKey: Map<string, string>)`:
-   - Normalize to lowercase
-   - Skip chars not assigned to any key (break adjacency)
-   - Only adjacent pairs create directed edges
-   - Return `{ nodes, edges }`
-
-2. **`src/components/Sidebar/`** — `Sidebar.tsx`, `WordListInput.tsx`, `WordListStats.tsx`, `WordList.tsx`, `WordItem.tsx`
-   - Textarea input, debounced 300ms
-   - Display parsed words as list
-   - Show line count + unique char count
-
-3. **`src/components/MainLayout.tsx`** — Horizontal flex: sidebar (left, ~300px) + keyboard area (right, flex-grow)
-
-#### Acceptance Gate
-- "craft" → edges c→a? No. c→r? No. Edges: c→r, r→a, a→f, f→t. Wait — "craft" adjacency: c-r, r-a, a-f, f-t. So c→r ✓
-- "cart" → c→a, a→r, r→t (NOT c→r)
-- "iron sword" → `n→[space]`, `[space]→s` edges exist
-- Duplicate lines double edge weights
-- Spaces create nodes
+Production build: ~50KB gzipped. Light mode only.
 
 ---
 
-### Phase 3: Graph Visualization
+## 2. File Inventory
 
-**Goal:** Nodes + edges overlay the keyboard.
+### Root Configuration & Types
 
-#### Tasks
+| File | Responsibility | Lines |
+|------|---|---|
+| `src/config.ts` | All constants: colors, sizing, thresholds, timing, finger orders, height guide | ~60 |
+| `src/types.ts` | TypeScript interfaces: AppState, KeyAssignment, WordEntry, FlagType, FingerEnum, etc. | ~45 |
 
-1. **`src/components/GraphOverlay/`** — `GraphOverlay.tsx`, `GraphNode.tsx`, `GraphEdge.tsx`
-   - SVG layer positioned absolutely over keyboard
-   - Nodes: circles centered on keys, sized by frequency (capped to key dimensions)
-   - Edges: directed arrows with arrowhead markers, opacity by weight
-   - Self-loops: small circular arrow
-   - Bidirectional edges: curve offset to avoid overlap
-   - Edges below `EDGE_WEIGHT_THRESHOLD` hidden
+### Data Definitions (Static)
 
-2. **Key position resolver** — Need to know pixel coordinates of each key center for edge routing. Options:
-   - `useRef` on each `Key` + `getBoundingClientRect()` on mount/resize
-   - Or compute from layout data + known key size in px
-   - Recommend: layout-based computation (no DOM measurement needed, deterministic)
+| File | Responsibility |
+|------|---|
+| `src/data/keyboard-layout.ts` | Physical key definitions (80 keys): code, label, row, column, width. Includes ANSI + F-row + modifiers. |
+| `src/data/mouse-layout.ts` | 5 mouse keys: LClick, RClick, MB4, MB5, Scroll. |
+| `src/data/default-assignments.ts` | Standard QWERTY left-hand defaults: char + finger for each key. |
 
-#### Gotchas
-- SVG overlay must have `pointer-events: none` except on hover targets
-- Spacebar node: cap to height not width
-- ArrowHead SVG marker definition: define once in `<defs>`, reference via `marker-end`
-- Recalc on window resize if using DOM measurement approach
+### State Management
 
-#### Acceptance Gate
-- Circles never overflow keys
-- Arrows visible, directed, opacity varies
-- Low-weight edges hidden
-- Live update on word list or assignment change
+| File | Responsibility |
+|------|---|
+| `src/state/AppContext.tsx` | React context provider + hooks: useAppState, useAppDispatch, useCharToKey, useMouseChars |
+| `src/state/reducer.ts` | Reducer function: 12 action types, character uniqueness enforcement, master roll logic. |
+| `src/state/persistence.ts` | LocalStorage: loadState, saveState, getDefaultState. 9 keys. |
 
----
+### Pure Function Libraries
 
-### Phase 4: Bad Word Detection
+| File | Responsibility |
+|------|---|
+| `src/lib/graph.ts` | `buildGraph(entries, charToKey)` → { nodes, edges }. Adjacency + directed edges. Spaces as chars. Unrecognized chars break adjacency. |
+| `src/lib/detection.ts` | 5 detectors: `detectSFBs`, `detectSFS`, `detectRolls`, `detectRedirects`, `detectScissors`. Each returns FlaggedPattern[]. |
+| `src/lib/analysis.ts` | `analyzeWords(entries, assignments×4, flags, sfsGap)` → { wordAnalysis[], nodeBadness }. Orchestrates all detectors, aggregates badness. |
+| `src/lib/keyboard-utils.ts` | `buildKeyPixelMap()`, `getKeyboardDimensions()`, `cycleFingerForward()`. Pixel math from layout data. |
 
-**Goal:** Flag words with ergonomic issues, visualize badness on nodes.
+### UI Components
 
-#### Tasks
+#### Root & Layout
+| File | Responsibility |
+|------|---|
+| `src/App.tsx` | App root: AppProvider + Header + MainLayout + HelpModal |
+| `src/components/Header.tsx` | Title + "Reset to Defaults" button |
+| `src/components/MainLayout.tsx` | Main flex container: Sidebar + KeyboardArea with shift panel toggle |
 
-1. **`src/lib/detection.ts`** — Pure functions for each pattern:
-   - `detectSFBs(word, charToFinger)` → `{ charIndices }[]`
-   - `detectSFS(word, charToFinger, gap)` → `{ charIndices }[]`
-   - `detectRolls(word, charToFinger)` → `{ charIndices, direction }[]`
-   - `detectRedirects(word, charToFinger)` → `{ charIndices }[]`
-   - `detectScissors(word, charToFinger, charToRow)` → `{ charIndices }[]`
+#### Keyboard
+| File | Responsibility |
+|------|---|
+| `src/components/Keyboard/Keyboard.tsx` | Keyboard container: renders rows + GraphOverlay for layer |
+| `src/components/Keyboard/KeyboardRow.tsx` | Single row of keys |
+| `src/components/Keyboard/Key.tsx` | Single key: color, char label, click→edit, right-click→dropdown (portal) |
 
-2. **`src/lib/analysis.ts`** — `analyzeWords(words, keyAssignments, flags, sfsGap)`:
-   - Run active detectors on each non-overridden word
-   - Aggregate badness weights per character
-   - Return per-word flag results + per-node badness
+#### Graph Visualization
+| File | Responsibility |
+|------|---|
+| `src/components/GraphOverlay/GraphOverlay.tsx` | SVG overlay: builds layer graph, renders nodes + edges, markers for arrowheads |
+| `src/components/GraphOverlay/GraphNode.tsx` | SVG circle: freq-sized, badness-tinted |
+| `src/components/GraphOverlay/GraphEdge.tsx` | SVG path + arrowhead: weight-opaque, curve offset for bidirectional |
 
-3. **`src/components/Sidebar/FlagToggles.tsx`** — 7 checkboxes with master-flag logic:
-   - Rolls ON → Outward ON + Inward ON
-   - Rolls OFF → Outward OFF + Inward OFF
-   - Both sub-flags ON → Rolls shows ON
-   - Either sub-flag OFF → Rolls shows OFF
+#### Mouse Keys
+| File | Responsibility |
+|------|---|
+| `src/components/MouseKeys/MouseKeys.tsx` | Container for 5 mouse keys (per layer) |
+| `src/components/MouseKeys/MouseKey.tsx` | Single mouse key: char label, click→edit |
 
-4. **`src/components/Sidebar/SFSGapInput.tsx`** — Number input, min 1, max 5
+#### Sidebar
+| File | Responsibility |
+|------|---|
+| `src/components/Sidebar/Sidebar.tsx` | Sidebar container: imports all sub-components |
+| `src/components/Sidebar/WordListInput.tsx` | Textarea, 300ms debounce, SET_WORD_LIST dispatch |
+| `src/components/Sidebar/WordListStats.tsx` | Line count + unique char count |
+| `src/components/Sidebar/WordList.tsx` | Container for WordItem components |
+| `src/components/Sidebar/WordItem.tsx` | Single word: flag highlight, override toggle, checkmark |
+| `src/components/Sidebar/FlagToggles.tsx` | 7 checkboxes + show arrows toggle + master roll logic |
+| `src/components/Sidebar/SFSGapInput.tsx` | Numeric input 1–5 |
 
-5. **Badness tint on GraphNode** — Red overlay with opacity = `max(0.10, badness / maxBadness)`
+#### Other
+| File | Responsibility |
+|------|---|
+| `src/components/FingerLegend.tsx` | 6 color swatches (5 fingers + unassigned) |
+| `src/components/HelpModal.tsx` | ? button + modal overlay |
 
-6. **Red highlight on WordItem** — Flagged words get red background. Tooltip shows which flags triggered.
+### Entry Points & Config
 
-#### Key Implementation Details
-
-**SFB:** Trivial — for each adjacent pair, compare finger assignments.
-
-**SFS:** For each pair at distance `gap + 1`, also verify ALL intervening characters have finger assignments (else skip).
-
-**Roll:** Scan word for maximal same-hand sequences. Within each, check if all finger transitions are consistently increasing (inward) or decreasing (outward). A sequence of ≥2 chars qualifies.
-
-**Redirect:** Within maximal same-hand sequences, find points where direction flips. Flag the 3-char window around each flip (or the full redirect sequence).
-
-**Scissor:** For each adjacent pair, both must have non-thumb finger assignments. Check `|row_a - row_b| >= 2` AND height-guide violation (the finger that naturally rests lower is on the higher row).
-
-#### Acceptance Gate
-- All 7 flags work independently
-- Master roll flag controls sub-flags
-- SFS gap changes detection range
-- Flagged words highlighted red
-- Badness tint visible and proportional on nodes
-- Finger-unassigned characters break all sequences
-
----
-
-### Phase 5: Word Override
-
-**Goal:** Users can exempt specific word instances from detection.
-
-#### Tasks
-
-1. **Override toggle on `WordItem`** — Button/icon per word line
-2. **Visual treatment** — Overridden words: strikethrough + muted, no red highlight
-3. **Exclusion from analysis** — Overridden words skipped in `analyzeWords()`
-4. **Still in graph** — Overridden words still contribute to `buildGraph()`
-5. **Per-instance** — Each line has independent override state
-6. **"Clear All Overrides" button** in sidebar
-
-#### Acceptance Gate
-- Override removes red highlight + badness contribution
-- Graph nodes/edges unchanged by override
-- Per-instance for duplicate words
-- Persists to LocalStorage
+| File | Purpose |
+|------|---------|
+| `index.html` | Vite entry, script src main.tsx |
+| `src/main.tsx` | React createRoot, render App |
+| `src/App.css` | Component styles |
+| `src/index.css` | CSS reset, base styles |
+| `vite.config.ts` | Vite config |
+| `tsconfig.json`, etc. | TypeScript config |
+| `eslint.config.js` | Linting rules |
+| `package.json` | Dependencies, scripts |
 
 ---
 
-### Phase 6: Polish
+## 3. Key Algorithms
 
-**Goal:** Tooltips, hover effects, final visual pass.
+### Graph Construction (graph.ts)
 
-#### Tasks
-- Edge tooltip: hover shows source, target, weight
-- Node hover: highlight connected edges at 100% opacity
-- Flagged word tooltip: show which patterns triggered + character positions
-- Verify WCAG AA contrast for all finger colors against white + dark text
-- Test with 500+ word lists for performance
-- Clean up any `console.log` or dev artifacts
-- Final responsive check at 1024px
+**Input:** Word entries (lowercase, spaces preserved) + charToKey map
+**Output:** { nodes (frequency), edges (weight, directed) }
 
----
+```
+For each word:
+  Extract only assigned characters (charToKey.has(char))
+    → unassigned chars skipped (break adjacency)
+  
+  Count frequencies of valid chars
+  
+  For adjacent pairs (i, i+1):
+    Create directed edge source→target
+    Increment edge weight
 
-## Testing Strategy
-
-No test framework in scaffold yet. Recommended: **Vitest** (integrates with Vite).
-
-```bash
-npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom
+Return { nodes, edges }
 ```
 
-Priority test targets:
-1. `graph.ts` — Unit tests for edge construction, adjacency, direction, self-loops, ignored chars
-2. `detection.ts` — Unit tests for each detector with known inputs
-3. `analysis.ts` — Integration tests combining detectors + badness calculation
-4. `reducer.ts` — State transition tests (finger cycling, character uniqueness, flag logic)
+**Key points:**
+- Spaces are characters (same logic)
+- Unrecognized chars silently skip (don't error)
+- Directed: a→b ≠ b→a
+- Self-loops allowed: o→o in "oo"
 
-Graph + detection are pure functions — easy to test without React.
+### SFB Detection (detection.ts)
+
+```
+For adjacent pair (i, i+1):
+  finger1 = fingerOf(chars[i])
+  finger2 = fingerOf(chars[i+1])
+  
+  If finger1 && finger2 && finger1 === finger2:
+    Flag both characters as SFB
+```
+
+**Break condition:** Characters without finger assignment (including mouse keys in this context) don't form SFB with anything.
+
+### SFS Detection
+
+```
+For positions i and i+gap+1:
+  finger1 = fingerOf(chars[i])
+  finger2 = fingerOf(chars[i+gap+1])
+  
+  If !finger1 || !finger2:
+    Skip this skipgram
+  
+  Check intervening chars [i+1...i+gap]:
+    For each char:
+      If not has finger AND not mouseChar:
+        Skip this skipgram (broken)
+  
+  If finger1 === finger2:
+    Flag chars[i] and chars[i+gap+1] as SFS
+```
+
+**Key: Mouse chars are transparent.** A mouse-bound char doesn't break the gap. But if there's a regular char without finger assignment, the skipgram is invalid.
+
+### Roll Detection
+
+```
+Find maximal segments of chars with finger assignments.
+
+For each segment:
+  Find maximal sub-sequences where:
+    - All consecutive fingers are different
+    - All transitions increase OR all decrease laterally
+  
+  If length >= 2:
+    All increasing → Inward roll (pinky→thumb)
+    All decreasing → Outward roll (thumb→pinky)
+```
+
+**Lateral order (left hand):** pinky(0) < ring(1) < middle(2) < index(3) < thumb(4)
+
+**No restriction on consecutive fingers:** Pinky → Index (skipping ring/middle) is valid.
+
+### Redirect Detection
+
+```
+Find maximal segments of chars with finger assignments.
+
+For segments of length >= 3:
+  Check for direction changes in lateral transitions.
+  
+  If any transition changes from increasing to decreasing (or vice versa):
+    Flag entire segment as redirect.
+```
+
+**Example:** [ring(1), index(3), middle(2)] → direction goes inward(1→3) then outward(3→2) → redirect.
+
+### Scissor Detection
+
+```
+For adjacent pair (i, i+1):
+  finger1, finger2 = fingers of both chars
+  
+  If either is L_THUMB:
+    Skip (thumbs excluded)
+  
+  If |row1 - row2| < 2:
+    Skip (same row or adjacent rows)
+  
+  height1, height2 = height guide values (middle > ring > pinky > index)
+  
+  If (finger1OnHigherRow == finger1HasLowerHeight):
+    → Scissor (lower-height finger on higher row)
+```
+
+**Rows:** -1 (F-row, highest) to 4 (bottom mod row, lowest).
+**Height guide:** middle(3) > ring(2) > pinky(1) > index(0).
+
+### Badness Weight Calculation
+
+```
+For each word (unless overridden):
+  Run active detectors (SFB, SFS, roll, redirect, scissor)
+  
+  For each flagged pattern:
+    For each character index in pattern:
+      nodeBadness[char] += 1
+
+Return nodeBadness map
+```
+
+Final intensity = max(0.10, badness / maxBadness)
 
 ---
 
-## Common Pitfalls
+## 4. Interaction Model
 
-| Pitfall | Prevention |
-|---------|-----------|
-| Creating edges between non-adjacent chars | `graph.ts` must iterate `i, i+1` pairs ONLY |
-| Treating `a→r` and `r→a` as same edge | Edge key = `"${source}→${target}"`, directed |
-| Node overflowing key | Size formula uses `min(keyWidth, keyHeight)` as cap |
-| Forgetting spaces are chars | Parse lines raw (don't trim/split on space) |
-| SFS checking across finger-unassigned gaps | Verify ALL chars in range `[i, i+gap+1]` have fingers |
-| Scissor false positive on thumb | Exclude `L_THUMB` from scissor checks explicitly |
-| Roll/redirect across hands | Not possible (only left hand exists), but guard anyway |
-| Master flag desyncing from sub-flags | Single reducer action handles all three flags atomically |
+### Keyboard Keys
+
+**Left-click on key:**
+- Opens inline text input over the key
+- Shows current character (or empty)
+- Enter or click away confirms
+- Escape cancels
+- First grapheme taken if multiple chars typed
+
+**Right-click on key:**
+- Portal dropdown appears at mouse position
+- 5 finger options + "Unassigned"
+- Click any option to select
+- Click outside to close
+
+**Unassigned → L_PINKY → L_RING → L_MIDDLE → L_INDEX → L_THUMB → Unassigned (cycle order)**
+
+### Mouse Keys
+
+**Left-click on mouse key:**
+- Opens inline text input (same as keyboard)
+- Character only (no finger selector)
+
+### Shift Layer
+
+**"Shift Layer" button:**
+- Click to toggle visibility of shift panel
+- Button shows ▼ (hidden) or ▲ (visible)
+
+**Shift keyboard:**
+- Fully independent from main layer
+- All interactions (click, right-click, edit) apply to shift layer only
+- Shift layer has separate mouse keys
+
+### Graph Visualization
+
+**Node:** Colored circle on key, sized by frequency.
+**Edge:** Directed arrow with opacity scaled by weight.
+**Show Arrows checkbox:** Toggle all edges on/off (no per-edge threshold in UI).
+
+---
+
+## 5. Layer System
+
+### Main Layer
+
+**Keyboard:** `state.keyAssignments`
+**Mouse:** `state.mouseAssignments`
+**Graph:** GraphOverlay layer="main" builds charToKey from only main sources
+**Analysis:** Uses both layers for badness (unified)
+
+### Shift Layer
+
+**Keyboard:** `state.shiftKeyAssignments` (independent)
+**Mouse:** `state.shiftMouseAssignments` (independent)
+**Graph:** GraphOverlay layer="shift" builds charToKey from only shift sources
+**Analysis:** Same detectors, same flags (global, not per-layer)
+
+### Key Points
+
+- **Character isolation:** Same char can exist on different keys in different layers. `charToKey` per GraphOverlay is layer-specific.
+- **Unified badness:** `analyzeWords()` receives all 4 sources (both keyboard layers + both mouse layers) for detection. Badness aggregates across layers.
+- **Flag scope:** Flags + SFS gap are global (same for both layers).
+- **Word override:** Per-word, applies to both layers (character in either layer flagged if word flagged).
+
+---
+
+## 6. Graph Visualization
+
+### SVG Overlay
+
+**Positioned absolutely** over keyboard, pointer-events: none (clicks pass through to keys).
+
+```xml
+<svg class="graph-overlay" width="..." height="...">
+  <defs>
+    <!-- One marker per edge for dynamic opacity -->
+    <marker id="arrowhead-0" ... fill={rgba(80,80,150,opacity)} />
+    ...
+  </defs>
+  
+  <!-- Edges first (behind nodes) -->
+  <GraphEdge x1 y1 x2 y2 opacity isBidirectional markerId />
+  ...
+  
+  <!-- Nodes on top -->
+  <GraphNode centerX centerY diameter badnessIntensity />
+  ...
+</svg>
+```
+
+### Node Rendering
+
+**Position:** Key center (computed from `keyPixelMap`)
+**Size:** Frequency-scaled, capped to 80% of key dimension
+**Color:** Base gray, overlay red tint (badness-based)
+
+```typescript
+diameter = (0.15 + (freq / maxFreq) * 0.85) * maxAllowed
+where maxAllowed = min(key.width, key.height) * 0.8
+```
+
+For spacebar: `maxAllowed = key.height * 0.8` (not width).
+
+### Edge Rendering
+
+**Path:** SVG line from source key center to target key center
+**Opacity:** Weight-scaled, range 15–70%
+**Arrowhead:** SVG marker with dynamic opacity
+
+```typescript
+opacity = 0.15 + (weight / maxWeight) * 0.55
+```
+
+**Bidirectional offset:** If a→b and b→a both exist, curve each path slightly to avoid overlap.
+
+**Self-loops:** Rendered as small circular path on the key itself.
+
+### Key Positions
+
+Computed once from static layout data:
+
+```typescript
+keyPixelMap = new Map()
+for each row:
+  xCursor = 0
+  for each key:
+    x = xCursor
+    y = rowIndex * (KEY_UNIT_PX + KEY_GAP_PX)
+    centerX = x + width / 2
+    centerY = y + height / 2
+    xCursor += width + KEY_GAP_PX
+```
+
+No re-measurement on scroll/resize. Scaling handled via CSS (parent container width).
+
+---
+
+## 7. Word Override System
+
+### Storage
+
+Each word entry: `{ id, text, isOverridden }`
+
+### Behavior
+
+**Overridden = true:**
+- Visual: Strikethrough + muted (not red highlight)
+- Detection: Skipped (doesn't run any detectors)
+- Graph: STILL included (nodes + edges + weights)
+
+**Overridden = false:**
+- Visual: Red highlight if flagged
+- Detection: All detectors run
+
+### Per-Instance
+
+Same word appearing multiple times = independent override states (one per line).
+
+---
+
+## 8. LocalStorage Schema
+
+All 9 keys use JSON serialization. Parse failure → fallback to defaults.
+
+```javascript
+localStorage.setItem('skp-key-assignments', 
+  JSON.stringify(state.keyAssignments))
+localStorage.setItem('skp-shift-key-assignments', 
+  JSON.stringify(state.shiftKeyAssignments))
+localStorage.setItem('skp-mouse-assignments', 
+  JSON.stringify(state.mouseAssignments))
+localStorage.setItem('skp-shift-mouse-assignments', 
+  JSON.stringify(state.shiftMouseAssignments))
+localStorage.setItem('skp-word-list', 
+  JSON.stringify(state.wordEntries))
+localStorage.setItem('skp-flags', 
+  JSON.stringify(state.flags))
+localStorage.setItem('skp-sfs-gap', 
+  JSON.stringify(state.sfsGap))
+localStorage.setItem('skp-show-shift-layer', 
+  JSON.stringify(state.showShiftLayer))
+localStorage.setItem('skp-show-arrows', 
+  JSON.stringify(state.showArrows))
+```
+
+Approx 40–50KB total (all keys combined, typical usage).
+
+---
+
+## 9. Known Constraints & Design Decisions
+
+### Hand Constraint
+- **Right hand on mouse.** Only 5 left-hand fingers available. This is foundational to the design.
+- No future support for right-hand assignments (out of scope).
+
+### Character Support
+- **Unicode:** First grapheme taken. Input validation rejects control chars (U+0000–U+001F, U+007F–U+009F).
+- **Spaces:** Treated as regular characters (nodes + edges).
+- **Printable ASCII + Unicode:** Supported. Non-printable rejected.
+
+### Graph Properties
+- **Directed edges only.** a→b ≠ b→a.
+- **Adjacent pairs only.** No all-pairs-in-word edges.
+- **Unrecognized chars break adjacency.** No edge between neighbors of unrecognized char.
+- **Spaces as chars.** Create nodes, participate in detection, visible as ␣ in UI.
+
+### Layer Independence
+- **Main + Shift separate state** (keyAssignments, mouseAssignments).
+- **Unified analysis** (both layers used for badness calculation).
+- **Per-layer graphs** (each GraphOverlay only shows its own layer's chars).
+
+### Mouse Keys
+- **No finger assignment.** Mouse keys are character containers only.
+- **Transparent in SFS gap.** Don't break intervening checks.
+- **Participate in other patterns.** SFB, rolls, redirects, scissors all include mouse chars.
+
+### F-Keys
+- **Same size as alpha keys.** width = 1.0, not smaller.
+
+### Modifier Keys
+- **Fully assignable** (Tab, CapsLock, Shift, Ctrl, Alt).
+- Can bind characters + fingers like any key.
+
+### Keyboard Sizing
+- **Fixed pixel dimensions:** KEY_UNIT_PX (44px) + KEY_GAP_PX (3px).
+- **No dynamic key sizing.** Responsive via CSS transform or parent container width.
+
+### Finger Colors
+- **Calm, muted palette** (not saturated/neon).
+- **Light mode only.** No dark mode toggle.
+
+### Debouncing
+- **Word list input:** 300ms debounce to avoid rapid graph rebuilds on keystroke.
+
+### Persistence
+- **Immediate on state change.** No "Save" button. Every dispatch → reducer → localStorage.
+
+### Portal Dropdowns
+- **Finger selector:** Rendered to document.body via React.createPortal to escape overflow:hidden clipping on keyboard container.
+
+### Error Recovery
+- **localStorage parse failure:** Falls back to defaults, logs warning.
+- **Invalid input:** Silently rejected in reducer (no error dialog).
+
+---
+
+## 10. Performance Characteristics
+
+### Time Complexity
+
+| Operation | Complexity | Notes |
+|-----------|-----------|-------|
+| Graph build | O(total_chars + edges) | Single pass over words + adjacencies |
+| Detection (single word) | O(chars) | Linear scan for each detector |
+| All detection | O(words × chars × flags) | Worst case if all flags active |
+| Analysis (badness) | O(chars + patterns) | Aggregate detections |
+| Rendering (GraphOverlay) | O(nodes + edges) | SVG re-render via React |
+
+### Tested Limits
+
+- **500+ lines:** <500ms recompute (word list parsing + graph + detection)
+- **1000+ unique chars:** Handled (rare)
+- **Highly connected graph:** No issues (edges scale well in SVG)
+
+### Optimization Strategies
+
+1. **useMemo:** GraphOverlay memoizes graph computation + analysis. Rebuilds only on relevant state change.
+2. **Debounce:** Word list input debounced 300ms (avoids rebuild on every keystroke).
+3. **Per-layer graphs:** Each GraphOverlay only builds charToKey from its layer (half the work).
+4. **Pixel map:** Computed once per session (not per render).
+
+### Memory Usage
+
+- **localStorage:** ~50KB (all 9 keys)
+- **DOM:** ~300 elements (keyboard keys + mouse keys)
+- **SVG:** ~100–300 elements (nodes + edges, scales with word list)
+- **State objects:** Shallow copies (immutable pattern)
+
+No memory leaks observed (event listeners cleaned up, refs released).
+
+---
+
+## 11. Testing Approach
+
+No formal test suite in current build. Recommended additions:
+
+### Unit Tests (Vitest)
+
+**graph.ts:**
+- Adjacent-only edges
+- Directed edges (a→b ≠ b→a)
+- Spaces as characters
+- Unrecognized chars break adjacency
+- Self-loops
+
+**detection.ts:**
+- SFB: same finger adjacent
+- SFS: gap-aware, intervening check
+- Rolls: direction consistency
+- Redirects: direction changes
+- Scissors: height guide + row gap
+
+**analysis.ts:**
+- Multiple words combined
+- Badness aggregation
+- Word override exclusion
+
+**reducer.ts:**
+- Character uniqueness enforcement
+- Master roll flag logic
+- SFS gap clamping
+
+### Integration Tests
+
+- State persistence (localStorage)
+- Graph re-render on state change
+- Multi-layer character isolation
+
+### Manual Testing
+
+- 500+ word list performance
+- Edge cases: space-only words, all unrecognized chars, etc.
+- Cross-browser (Chrome, Firefox, Edge)
+
+---
+
+## 12. Known Issues & Workarounds
+
+| Issue | Status | Workaround |
+|-------|--------|-----------|
+| Node/edge hover tooltips | Not implemented | UI is self-explanatory (labels on keys) |
+| "Clear All Overrides" button | Not implemented | Override each word individually |
+| Mobile support <1024px | Out of scope | Desktop only (right hand on mouse) |
+| Dark mode | Not implemented | Light mode only (design choice) |
+| Import/export layouts | Out of scope | LocalStorage only |
+| Undo/redo | Out of scope | State is global (no action history) |
+
+---
+
+## 13. Future Enhancement Opportunities
+
+- Tooltip on node/edge hover (low effort, high polish)
+- "Clear All Overrides" button (trivial)
+- Keyboard shortcut for flags (e.g., `Ctrl+1` for roll toggle)
+- Analyze preset word lists (Minecraft crafting recipes, etc.)
+- Custom color schemes (advanced theme system)
+- Layout versioning + comparison
+- Heatmap overlay showing finger strain
+- Audio feedback on keypress simulation

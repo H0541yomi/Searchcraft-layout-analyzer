@@ -13,10 +13,13 @@ export function Keyboard({ layer = 'main' }: KeyboardProps) {
   const state = useAppState()
   const dispatch = useAppDispatch()
   const [editingKeyCode, setEditingKeyCode] = useState<string | null>(null)
+  const [draggedKeyCode, setDraggedKeyCode] = useState<string | null>(null)
+  const [dragOverKeyCode, setDragOverKeyCode] = useState<string | null>(null)
 
   const isShiftLayer = layer === 'shift'
   const assignments = isShiftLayer ? state.shiftKeyAssignments : state.keyAssignments
   const characterAction = isShiftLayer ? 'SET_SHIFT_CHARACTER' : 'SET_CHARACTER'
+  const swapAction = isShiftLayer ? 'SWAP_SHIFT_CHARACTERS' : 'SWAP_CHARACTERS'
 
   const handleStartEdit = (code: string) => {
     setEditingKeyCode(code)
@@ -29,6 +32,33 @@ export function Keyboard({ layer = 'main' }: KeyboardProps) {
 
   const handleCancelEdit = () => {
     setEditingKeyCode(null)
+  }
+
+  const handleDragStart = (code: string) => {
+    setDraggedKeyCode(code)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedKeyCode(null)
+    setDragOverKeyCode(null)
+  }
+
+  const handleDragEnter = (code: string) => {
+    if (draggedKeyCode && code !== draggedKeyCode) {
+      setDragOverKeyCode(code)
+    }
+  }
+
+  const handleDragLeave = () => {
+    setDragOverKeyCode(null)
+  }
+
+  const handleDrop = (targetCode: string) => {
+    if (draggedKeyCode && targetCode !== draggedKeyCode) {
+      dispatch({ type: swapAction, keyCodeA: draggedKeyCode, keyCodeB: targetCode })
+    }
+    setDraggedKeyCode(null)
+    setDragOverKeyCode(null)
   }
 
   return (
@@ -44,6 +74,13 @@ export function Keyboard({ layer = 'main' }: KeyboardProps) {
             onConfirmEdit={handleConfirmEdit}
             onCancelEdit={handleCancelEdit}
             layer={layer}
+            draggedKeyCode={draggedKeyCode}
+            dragOverKeyCode={dragOverKeyCode}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
           />
         ))}
       </div>
